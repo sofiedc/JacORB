@@ -472,7 +472,7 @@ public abstract class GIOPConnection
                 {
                     logger.info
                     (
-                        this.toString() + " BufferDump:\n" +
+                        this.toString() + " BufferDump: " + (msg_size + Messages.MSG_HEADER_SIZE) + " Bytes"+ "\n" +
                         ObjectUtil.bufToString
                         (
                             inbuf.value, 0, msg_size + Messages.MSG_HEADER_SIZE
@@ -595,21 +595,15 @@ public abstract class GIOPConnection
                     return;
                 }
 
-                //GIOP 1.1 Fragmented messages currently not supported
+                int request_id = 0;
                 if ( Messages.getGIOPMinor( message ) == 1 )
                 {
-                    if (logger.isWarnEnabled())
-                    {
-                        logger.warn( "Received a GIOP 1.1 Fragment message"
-                                     + " in " + this.toString());
-                    }
-
-                    //Can't return a message in this case, because
-                    //GIOP 1.1 fragments don't have request
-                    //ids. Therefore, just discard.
-                    buf_mg.returnBuffer( message );
-
-                    return;
+                  //GIOP 1.1 messages don't have request ids, use request id from previous message instead
+                  request_id = lastRequestId;
+                }
+                else
+                {
+                  request_id = Messages.getRequestId( message );
                 }
 
                 //for now, only GIOP 1.2 from here on
@@ -617,7 +611,7 @@ public abstract class GIOPConnection
                 int request_id = Messages.getRequestId( message );
 
                 //sanity check
-                if ( ! fragments.containsKey( request_id ))
+                if ( ! fragments.containsKey( request_id ) || lastRequestId.intValue() == -1)
                 {
                     if (logger.isErrorEnabled())
                     {
@@ -632,14 +626,30 @@ public abstract class GIOPConnection
                 }
 
                 ByteArrayOutputStream b_out =
-                    (ByteArrayOutputStream)fragments.get( request_id );
+                    fragments.get( request_id );
 
-                //add the message contents to stream (discarding the
-                //GIOP message header and the request id ulong of the
-                //Fragment header)
+                /*
+                //add the message contents to stream
+                if ( Messages.getGIOPMinor( message ) == 1 )
+                {
+                    //GIOP 1.1 messages don't have request ids
+                    b_out.write( message,
+                      Messages.MSG_HEADER_SIZE ,
+                      Messages.getMsgSize(message));
+                }
+                else
+                {
+                    //discarding the GIOP message header and the request id ulong of the
+                    //Fragment header
+                    b_out.write( message,
+                               Messages.MSG_HEADER_SIZE + 4 ,
+                               Messages.getMsgSize(message) - 4 );
+                }*/
+
+                //Keep the whole fragment in the buffer intact
                 b_out.write( message,
-                             Messages.MSG_HEADER_SIZE + 4 ,
-                             Messages.getMsgSize(message) - 4 );
+                             0,
+                             Messages.MSG_HEADER_SIZE + Messages.getMsgSize(message));
 
                 if ( Messages.moreFragmentsFollow( message ))
                 {
@@ -655,6 +665,7 @@ public abstract class GIOPConnection
                 msg_type = Messages.getMsgType( message );
 
                 fragments.remove( request_id );
+                lastRequestId = -1;
             }
             else if ( Messages.moreFragmentsFollow( message ) )
             {
@@ -707,38 +718,6 @@ public abstract class GIOPConnection
 
                         return;
                     }
-
-                    //GIOP 1.1 Fragmented messages currently not supported
-                    if (logger.isWarnEnabled())
-                    {
-                        logger.warn( "Received a fragmented GIOP 1.1 message"
-                                     + " in " + this.toString() );
-                    }
-
-                    int giop_minor = Messages.getGIOPMinor( message );
-
-                    final ReplyOutputStream out =
-                        new ReplyOutputStream( orb,
-                                               Messages.getRequestId( message ),
-                                               ReplyStatusType_1_2.SYSTEM_EXCEPTION,
-                                               giop_minor,
-                                               false,
-                                               logger);//no locate reply
-
-                    try
-                    {
-                        SystemExceptionHelper.write( out,
-                                                     new NO_IMPLEMENT( 0, CompletionStatus.COMPLETED_NO ));
-
-                        sendMessage( out );
-                        buf_mg.returnBuffer( message );
-
-                        return;
-                    }
-                    finally
-                    {
-                        out.close();
-                    }
                 }
 
                 //check, that only the correct message types are fragmented
@@ -769,8 +748,9 @@ public abstract class GIOPConnection
 
                 //if we're here, it's the first part of a fragmented message
                 Integer request_id =
-                    new Integer( Messages.getRequestId( message )); // NOPMD
+                      Integer.valueOf(Messages.getRequestId( message ));
 
+                lastRequestId = request_id;
                 //sanity check
                 if ( fragments.containsKey( request_id ))
                 {

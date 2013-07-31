@@ -42,7 +42,7 @@ public class EncapsInfo
 
     /** constructor used by CDRInputStream */
 
-    public EncapsInfo(boolean le, int index, int start, int size)
+    public EncapsInfo(boolean le, int index, int start, int size, boolean nextFragmentAffected)
     {
         littleEndian = le;
         this.index = index;
