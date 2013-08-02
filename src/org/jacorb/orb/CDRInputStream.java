@@ -154,7 +154,11 @@ public class CDRInputStream
      *  fragment (Reply with "more fragments follow" bit set
      *  or GIOP 1.1 / GIOP 1.2 fragment)
      */
-    private int endOfFragmentBufferPosition = -1;
+    private int currentEndOfFragmentBufferPosition = -1;
+
+    /**  */
+    private ArrayList<Integer> endOfFragmentBufferPositions = new ArrayList<Integer>();
+    private int endOfFragmentBufferPositionsIndex = -1;
 
     /**
      * <code>mutator</code> is a pluggable IOR mutator.
@@ -243,7 +247,21 @@ public class CDRInputStream
         {
             //Check for Fragmentation
             fragmentsReceived = Messages.moreFragmentsFollow(buffer);
-            endOfFragmentBufferPosition = Messages.getMsgSize(buffer)  + Messages.MSG_HEADER_SIZE;
+
+            if(fragmentsReceived)
+            {
+                //get end position in buffer of first
+                endOfFragmentBufferPositions = getEndOfFragmentBufferPositions();
+
+                if(endOfFragmentBufferPositions.size() == 0)
+                {
+                    throw new IllegalArgumentException();
+                }
+
+                //get first element in list
+                currentEndOfFragmentBufferPosition = getNextElementFromFragmentBufferPositions();
+            }
+
         }
     }
 
@@ -288,6 +306,53 @@ public class CDRInputStream
 
         mutator = (IORMutator) configuration.getAttributeAsObject("jacorb.iormutator");
         isMutatorEnabled = (mutator != null);
+    }
+
+    private ArrayList<Integer> getEndOfFragmentBufferPositions()
+    {
+        ArrayList<Integer> result = new ArrayList<Integer>();
+
+        int pos = 0;
+        int endPosition = 0;
+        byte[] header = new byte[Messages.MSG_HEADER_SIZE];
+        boolean errorWhileProcessing = false;
+
+        while(pos < buffer.length)
+        {
+            System.arraycopy( buffer,
+                    endPosition,
+                              header,
+                              0,
+                              Messages.MSG_HEADER_SIZE);
+
+            //sanity check
+            if(Messages.matchGIOPMagic(header))
+            {
+                endPosition += Messages.MSG_HEADER_SIZE + Messages.getMsgSize(header);
+
+                result.add(endPosition);
+
+                pos = endPosition;
+            }
+            else
+            {
+                errorWhileProcessing = true;
+                break;
+            }
+
+        }
+
+        if(errorWhileProcessing)
+            throw new MARSHAL( "Internal Error - fragmentation processing failed" );
+
+        return result;
+    }
+
+    private Integer getNextElementFromFragmentBufferPositions()
+    {
+        Integer result = endOfFragmentBufferPositions.get(++endOfFragmentBufferPositionsIndex);
+
+        return result;
     }
 
     /**
@@ -414,8 +479,6 @@ public class CDRInputStream
     {
         int result;
 
-        handle_fragmentation(4);
-
         result = _read4int (littleEndian, buffer, pos);
 
         index += 4;
@@ -507,46 +570,41 @@ public class CDRInputStream
         index += distance;
     }
 
-    private final void handle_fragmentation(final int bytesToRead)
+    /**
+     *
+     * @param bytesToRead
+     */
+    private boolean handle_fragmentation(final int bytesToRead)
     {
+        boolean swapedToNextFragment = false;
+
         if(fragmentsReceived)
         {
             //check if data is available in the current  or in the next fragment
-            if( (pos + bytesToRead) > endOfFragmentBufferPosition )
+            if( (pos + bytesToRead) > currentEndOfFragmentBufferPosition )
             {
-                //extract Header of next fragment
-                byte[] headerBytes = new byte[Messages.MSG_HEADER_SIZE];
+                swapedToNextFragment = true;
 
-                if(getGIOPMinor() == 1)
+                //update end of fragment position in buffer
+                if(getGIOPMinor() == 1 )
                 {
                     //GIOP 1.1 fragments dont have request ids
-                    System.arraycopy(buffer,
-                                     endOfFragmentBufferPosition,
-                                     headerBytes,
-                                     0,
-                                     Messages.MSG_HEADER_SIZE);
+                    pos = currentEndOfFragmentBufferPosition + Messages.MSG_HEADER_SIZE;
+                    index = Messages.MSG_HEADER_SIZE; //reset alignment relative to position in the fragment
                 }
                 else
                 {
-                    System.arraycopy(buffer,
-                            endOfFragmentBufferPosition,
-                            headerBytes,
-                            0,
-                            Messages.MSG_HEADER_SIZE + 4);
-
+                    pos = currentEndOfFragmentBufferPosition + Messages.MSG_HEADER_SIZE + 4;
+                    index = Messages.MSG_HEADER_SIZE + 4;
                 }
 
-                //update end of fragment position in buffer
-                pos = endOfFragmentBufferPosition + Messages.MSG_HEADER_SIZE;
-                endOfFragmentBufferPosition += Messages.MSG_HEADER_SIZE +  Messages.getMsgSize(headerBytes);
-
-                index = 0; //reset alignment relative to position in the fragment
+                currentEndOfFragmentBufferPosition = getNextElementFromFragmentBufferPositions();
 
                 //debug logging
-                logger.debug("Processed next fragment header: " + ObjectUtil.bufToString(headerBytes, 0, Messages.MSG_HEADER_SIZE));
-                logger.debug("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + endOfFragmentBufferPosition);
+                logger.debug("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + currentEndOfFragmentBufferPosition);
             }
         }
+        return swapedToNextFragment;
     }
 
 
@@ -568,12 +626,34 @@ public class CDRInputStream
         int size = ei.size;
         int start = ei.start;
 
-        if( pos < start + size )
-        {
-            pos = start + size;
-        }
 
-        index = ei.index + size;
+        //check if next fragment was affected
+        if(ei.nextFragmentAffected)
+        {
+            if(getGIOPMinor() == 1)
+            {
+                if( pos < start + size + Messages.MSG_HEADER_SIZE )
+                {
+                    pos = start + size;
+                }
+            }
+            else
+            {
+                if( pos < start + size + Messages.MSG_HEADER_SIZE + 4 )
+                {
+                    pos = start + size;
+                }
+            }
+        }
+        else
+        {
+            if( pos < start + size )
+            {
+                pos = start + size;
+            }
+
+            index = ei.index + size;
+        }
     }
 
     /**
@@ -617,7 +697,23 @@ public class CDRInputStream
         {
             encaps_stack = new Stack();
         }
-        encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
+
+        //check if next fragment is affected
+        if(fragmentsReceived)
+        {
+            if( (pos + size) > currentEndOfFragmentBufferPosition)
+            {
+                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, true ));
+            }
+            else
+            {
+                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
+            }
+        }
+        else
+        {
+            encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
+        }
 
         openEncapsulatedArray();
 
@@ -881,15 +977,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 8 - (index % 8);
-        if (remainder != 8)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset + length; j++)
         {
+            handle_fragmentation(8);
+
+            int remainder = 8 - (index % 8);
+            if (remainder != 8)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = Double.longBitsToDouble (_read_longlong());
         }
     }
@@ -1012,6 +1110,7 @@ public class CDRInputStream
 
         for (int j = offset; j < offset + length; j++)
         {
+            handle_fragmentation(4);
             value[j] = Float.intBitsToFloat (_read_long());
         }
     }
@@ -1048,16 +1147,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 4 - (index % 4);
-        if (remainder != 4)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset+length; j++)
         {
             handle_fragmentation(4);
+
+            int remainder = 4 - (index % 4);
+            if (remainder != 4)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = _read4int (littleEndian,buffer,pos);
             pos += 4;
             index += 4;
@@ -1091,17 +1191,19 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 8 - (index % 8);
-        if (remainder != 8)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         if (littleEndian)
         {
             for(int j=offset; j < offset+length; j++)
             {
+                handle_fragmentation(8);
+
+                int remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
                     ((long) _read_long() << 32);
             }
@@ -1110,6 +1212,15 @@ public class CDRInputStream
         {
             for(int j=offset; j < offset+length; j++)
             {
+                handle_fragmentation(8);
+
+                int remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+
                 value[j] = ((long) _read_long() << 32) +
                     (_read_long() & 0xFFFFFFFFL);
             }
@@ -1205,21 +1316,23 @@ public class CDRInputStream
 
         if(fragmentsReceived)
         {
-            if((pos + length) > endOfFragmentBufferPosition)
+            if((pos + length) > currentEndOfFragmentBufferPosition)
             {
                 //octed array spreaded over fragments
-                int bytesReadToFullfillFragment = (endOfFragmentBufferPosition - pos);
+
+                //rest of fragment
+                int bytesReadToFullfillFragment = (currentEndOfFragmentBufferPosition - pos);
                 int bytesLeft = length - bytesReadToFullfillFragment;
                 System.arraycopy(buffer, pos, value, offset, bytesReadToFullfillFragment);
 
+                //octets in new fragment
                 pos += bytesReadToFullfillFragment;
-
                 handle_fragmentation(bytesLeft);
-
-                System.arraycopy(buffer, pos, value, offset, bytesLeft);
+                System.arraycopy(buffer, pos, value, offset + bytesReadToFullfillFragment, bytesLeft);
             }
             else
             {
+                //octet array not spreaded over fragments
                 System.arraycopy (buffer,pos,value,offset,length);
                 index += length;
                 pos += length;
@@ -1277,17 +1390,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 2 - (index % 2);
-
-        if (remainder != 2)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset + length; j++)
         {
             handle_fragmentation(2);
+
+            int remainder = 2 - (index % 2);
+            if (remainder != 2)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = _read2int (littleEndian, buffer, pos);
             pos += 2;
             index += 2;
@@ -1331,14 +1444,11 @@ public class CDRInputStream
         pos += (4);
 
 
-        //check if string is spreaded over fragments
+        //check if string is spreaded over one or more fragments
         int offset = 0;
         if(fragmentsReceived)
         {
-            if( (pos+size) > endOfFragmentBufferPosition)
-            {
-                offset = Messages.MSG_HEADER_SIZE;
-            }
+            offset = calculateStringBufferOffset(size);
         }
 
         final int stringTerminatorPosition = start + size -1 + offset;
@@ -1398,14 +1508,31 @@ public class CDRInputStream
         {
             char[] buf = new char[size];
 
+            int bufferOffset = 0;
+
             for (int i=0; i<size; i++)
             {
+                if(handle_fragmentation(1))
+                {
+                    if(getGIOPMinor() == 1)
+                    {
+                        bufferOffset += Messages.MSG_HEADER_SIZE;
+                    }
+                    else
+                    {
+                        bufferOffset += Messages.MSG_HEADER_SIZE + 4;
+                    }
+                }
+
                 handle_fragmentation(1);
-                buf[i] = (char)(0xff & buffer[start + i]);
+
+                buf[i] = (char)(0xff & buffer[start + i + bufferOffset]);
 
                 pos++;
                 index++;
             }
+
+            handle_fragmentation(1);
 
             pos++;
             index++;
@@ -1414,6 +1541,29 @@ public class CDRInputStream
         }
 
         return result;
+    }
+
+    private int calculateStringBufferOffset(int size)
+    {
+        int offset = 0;
+
+        for(int i=0; i < endOfFragmentBufferPositions.size(); i++)
+        {
+            if( (pos+size+offset) > endOfFragmentBufferPositions.get(i))
+            {
+                if(getGIOPMinor() == 1)
+                {
+                    //GIOP 1.1 fragments dont have request ids
+                    offset += Messages.MSG_HEADER_SIZE;
+                }
+                else
+                {
+                    offset += Messages.MSG_HEADER_SIZE + 4;
+                }
+            }
+        }
+
+        return offset;
     }
 
 
@@ -1500,16 +1650,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 4 - (index % 4);
-        if (remainder != 4)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset+length; j++)
         {
             handle_fragmentation(4);
+
+            int remainder = 4 - (index % 4);
+            if (remainder != 4)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = _read4int (littleEndian,buffer,pos);
             pos += 4;
             index += 4;
@@ -1531,8 +1682,12 @@ public class CDRInputStream
 
         if (littleEndian)
         {
+            handle_fragmentation(8);
+
             return (_read_long() & 0xFFFFFFFFL) + ((long) _read_long() << 32);
         }
+
+        handle_fragmentation(8);
 
         return ((long) _read_long() << 32) + (_read_long() & 0xFFFFFFFFL);
     }
@@ -1547,17 +1702,19 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 8 - (index % 8);
-        if (remainder != 8)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         if (littleEndian)
         {
             for (int j = offset; j < offset+length; j++)
             {
+                handle_fragmentation(8);
+
+                int remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
                     ((long) _read_long() << 32);
             }
@@ -1566,6 +1723,15 @@ public class CDRInputStream
         {
             for (int j = offset; j < offset+length; j++)
             {
+                handle_fragmentation(8);
+
+                int remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+
                 value[j] = ((long) _read_long() << 32) +
                     (_read_long() & 0xFFFFFFFFL);
             }
@@ -1603,17 +1769,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 2 - (index % 2);
-
-        if (remainder != 2)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset + length; j++)
         {
             handle_fragmentation(2);
+
+            int remainder = 2 - (index % 2);
+            if (remainder != 2)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = _read2int (littleEndian, buffer, pos);
             pos += 2;
             index += 2;
@@ -1646,6 +1812,7 @@ public class CDRInputStream
 
     public byte readByte()
     {
+        handle_fragmentation(1);
         index++;
         return buffer[ pos++ ];
     }
@@ -1774,7 +1941,7 @@ public class CDRInputStream
         marked_index = index;
         marked_chunk_end_pos = chunk_end_pos;
         marked_valueNestingLevel = valueNestingLevel;
-        marked_endOfFragmentBufferPosition = endOfFragmentBufferPosition;
+        marked_endOfFragmentBufferPosition = currentEndOfFragmentBufferPosition;
     }
 
     public void reset()
@@ -1788,7 +1955,7 @@ public class CDRInputStream
         index = marked_index;
         chunk_end_pos = marked_chunk_end_pos;
         valueNestingLevel = marked_valueNestingLevel;
-        endOfFragmentBufferPosition = marked_endOfFragmentBufferPosition;
+        currentEndOfFragmentBufferPosition = marked_endOfFragmentBufferPosition;
     }
 
     // JacORB-specific
