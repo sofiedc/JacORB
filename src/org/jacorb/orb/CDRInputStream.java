@@ -1440,6 +1440,11 @@ public class CDRInputStream
 
         int start = pos + 4;
 
+        if(start == 8224)
+        {
+           int debug = 1;
+        }
+
         index += (4);
         pos += (4);
 
@@ -1547,9 +1552,9 @@ public class CDRInputStream
     {
         int offset = 0;
 
-        for(int i=0; i < endOfFragmentBufferPositions.size(); i++)
+        for(int i=endOfFragmentBufferPositionsIndex; i < endOfFragmentBufferPositions.size(); i++)
         {
-            if( (pos+size+offset) > endOfFragmentBufferPositions.get(i))
+            if( (pos+size+offset) > endOfFragmentBufferPositions.get(i) )
             {
                 if(getGIOPMinor() == 1)
                 {
