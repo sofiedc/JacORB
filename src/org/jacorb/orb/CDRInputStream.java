@@ -1495,20 +1495,8 @@ public class CDRInputStream
 
         if (codesetEnabled)
         {
-            result = new String();
-//            try
-//            {
-//                result = new String (buffer, start, size, codeSet.getName() );
-//            }
-//            catch (java.io.UnsupportedEncodingException ex)
-//            {
-//                if (logger.isErrorEnabled())
-//                {
-//                    logger.error("Charset " + codeSet.getName() + " is unsupported");
-//                    result = "";
-//                }
-//            }
             int bufferOffset = 0;
+            byte[] tempBuffer = new byte[size];
 
             for (int i=0; i<size; i++)
             {
@@ -1526,22 +1514,26 @@ public class CDRInputStream
 
                 handle_fragmentation(1);
 
-                try
-                {
-                    result += new String (buffer, start + i + bufferOffset, 1, codeSet.getName() );
-                }
-                catch (java.io.UnsupportedEncodingException ex)
-                {
-                    if (logger.isErrorEnabled())
-                    {
-                        logger.error("Charset " + codeSet.getName() + " is unsupported");
-                        result = "";
-                    }
-                }
+                tempBuffer[i] = buffer[start + i + offset];
 
                 pos++;
                 index++;
             }
+
+            //create string from temp buffer
+            try
+            {
+                result = new String (buffer, 0, size, codeSet.getName() );
+            }
+            catch (java.io.UnsupportedEncodingException ex)
+            {
+                if (logger.isErrorEnabled())
+                {
+                    logger.error("Charset " + codeSet.getName() + " is unsupported");
+                    result = "";
+                }
+            }
+
 
             //terminiating null character
             handle_fragmentation(1);
