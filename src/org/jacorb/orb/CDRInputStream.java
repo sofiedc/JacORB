@@ -1475,6 +1475,11 @@ public class CDRInputStream
         // Optimize for empty strings.
         if (size == 0)
         {
+            //terminiating null character
+            handle_fragmentation(1);
+            pos++;
+            index++;
+
             return "";
         }
 
