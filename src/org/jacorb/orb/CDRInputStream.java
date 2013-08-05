@@ -1523,7 +1523,7 @@ public class CDRInputStream
             //create string from temp buffer
             try
             {
-                result = new String (buffer, 0, size, codeSet.getName() );
+                result = new String (tempBuffer, 0, size, codeSet.getName() );
             }
             catch (java.io.UnsupportedEncodingException ex)
             {
