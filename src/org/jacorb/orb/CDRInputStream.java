@@ -1440,13 +1440,8 @@ public class CDRInputStream
 
         int start = pos + 4;
 
-        if(start == 8224)
-        {
-           int debug = 1;
-        }
-
-        index += (4);
-        pos += (4);
+        index += 4;
+        pos += 4;
 
 
         //check if string is spreaded over one or more fragments
@@ -1495,19 +1490,59 @@ public class CDRInputStream
 
         if (codesetEnabled)
         {
+            result = new String();
+//            try
+//            {
+//                result = new String (buffer, start, size, codeSet.getName() );
+//            }
+//            catch (java.io.UnsupportedEncodingException ex)
+//            {
+//                if (logger.isErrorEnabled())
+//                {
+//                    logger.error("Charset " + codeSet.getName() + " is unsupported");
+//                    result = "";
+//                }
+//            }
+            int bufferOffset = 0;
 
-            try
+            for (int i=0; i<size; i++)
             {
-                result = new String (buffer, start, size, codeSet.getName() );
-            }
-            catch (java.io.UnsupportedEncodingException ex)
-            {
-                if (logger.isErrorEnabled())
+                if(handle_fragmentation(1))
                 {
-                    logger.error("Charset " + codeSet.getName() + " is unsupported");
-                    result = "";
+                    if(getGIOPMinor() == 1)
+                    {
+                        bufferOffset += Messages.MSG_HEADER_SIZE;
+                    }
+                    else
+                    {
+                        bufferOffset += Messages.MSG_HEADER_SIZE + 4;
+                    }
                 }
+
+                handle_fragmentation(1);
+
+                try
+                {
+                    result += new String (buffer, start + i + bufferOffset, 1, codeSet.getName() );
+                }
+                catch (java.io.UnsupportedEncodingException ex)
+                {
+                    if (logger.isErrorEnabled())
+                    {
+                        logger.error("Charset " + codeSet.getName() + " is unsupported");
+                        result = "";
+                    }
+                }
+
+                pos++;
+                index++;
             }
+
+            //terminiating null character
+            handle_fragmentation(1);
+            pos++;
+            index++;
+
         }
         else
         {
@@ -1537,14 +1572,13 @@ public class CDRInputStream
                 index++;
             }
 
+            //terminiating null character
             handle_fragmentation(1);
-
             pos++;
             index++;
 
             result = new String(buf);
         }
-
         return result;
     }
 
@@ -1642,6 +1676,7 @@ public class CDRInputStream
 
         index += 4;
         pos += 4;
+
         return result;
     }
 
