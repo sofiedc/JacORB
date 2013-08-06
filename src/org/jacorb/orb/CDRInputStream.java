@@ -510,10 +510,8 @@ public class CDRInputStream
     private final void adjust_positions()
     {
         chunk_end_pos = -1;
-
-        //save index and position
-        mark(0);
-
+        int saved_pos = pos;
+        int saved_index = index;
         int tag = read_long();
 
         if (tag < 0)
@@ -541,7 +539,7 @@ public class CDRInputStream
         {
             if(fragmentsReceived)
             {
-
+                 //TODO fragmentation
             }
             else
             {
@@ -552,15 +550,9 @@ public class CDRInputStream
         else // (tag == 0 || tag >= 0x7fffff00)
         {
             // tag is the null value tag or the value tag of a nested value
-            try
-            {
-                //restore index and position
-                reset();
-            }
-            catch ( java.io.IOException ioe )
-            {
-                logger.error("unexpected Exception in reset()", ioe );
-            }
+
+            pos = saved_pos;
+            index = saved_index;
         }
     }
 
@@ -2914,7 +2906,7 @@ public class CDRInputStream
 
             if(fragmentsReceived)
             {
-                //TODO check for fragments
+                //TODO fragmentation
             }
             else
             {
