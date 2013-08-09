@@ -1459,6 +1459,7 @@ public class CDRInputStream
 
         int start = pos + 4;
 
+        index += 4;
         pos += (size + 4);
 
         final int stringTerminatorPosition = start + size -1;
@@ -1485,9 +1486,6 @@ public class CDRInputStream
         // Optimize for empty strings.
         if (size == 0)
         {
-            //handle index because of terminator
-            handle_fragmentation(1);
-            index++;
             return "";
         }
 
