@@ -600,7 +600,13 @@ public class CDRInputStream
     public final void skip(final int distance)
     {
         pos += distance;
-        index += distance;
+
+        //handle index with respect to fragmentation
+        for(int i=0; i < distance; i++)
+        {
+            handle_fragmentation(1);
+            index++;
+        }
     }
 
     /**
@@ -1453,7 +1459,6 @@ public class CDRInputStream
 
         int start = pos + 4;
 
-        index += (size + 4);
         pos += (size + 4);
 
         final int stringTerminatorPosition = start + size -1;
@@ -1480,6 +1485,9 @@ public class CDRInputStream
         // Optimize for empty strings.
         if (size == 0)
         {
+            //handle index because of terminator
+            handle_fragmentation(1);
+            index++;
             return "";
         }
 
@@ -1498,6 +1506,13 @@ public class CDRInputStream
 
             try
             {
+                //handle index because of fragmentation
+                for(int i = 0; i < (size+1); i++)
+                {
+                    handle_fragmentation(1);
+                    index++;
+                }
+
                 result = new String (buffer, start, size, codeSet.getName() );
             }
             catch (java.io.UnsupportedEncodingException ex)
@@ -1512,6 +1527,13 @@ public class CDRInputStream
         else
         {
             char[] buf = new char[size];
+
+            //handle index because of fragmentation
+            for(int i = 0; i < (size+1); i++)
+            {
+                handle_fragmentation(1);
+                index++;
+            }
 
             for (int i=0; i<size; i++)
             {
@@ -1769,6 +1791,8 @@ public class CDRInputStream
 
     public byte readByte()
     {
+        handle_fragmentation(1);
+
         index++;
         return buffer[ pos++ ];
     }
@@ -1802,18 +1826,16 @@ public class CDRInputStream
      */
     public final boolean readBOM()
     {
-        //mark indexes
-        mark(0);
-
-        handle_fragmentation(2);
-
         if( (buffer[ pos     ] == (byte) 0xFE) &&
             (buffer[ pos + 1 ] == (byte) 0xFF) )
         {
+
+
             //encountering a byte order marker indicating big
             //endianess
 
             pos += 2;
+            handle_fragmentation(2);
             index += 2;
 
             return false;
@@ -1825,23 +1847,13 @@ public class CDRInputStream
             //little endianess
 
             pos += 2;
+            handle_fragmentation(2);
             index += 2;
 
             return true;
         }
         else
         {
-            //reset indexes
-            try
-            {
-                reset();
-            }
-            catch ( java.io.IOException ioe )
-            {
-                logger.error("unexpected Exception in reset()", ioe );
-            }
-
-
             //no BOM so big endian per spec.
             return false;
         }
@@ -2824,34 +2836,20 @@ public class CDRInputStream
      */
     private void readChunkSizeTag()
     {
-        mark(0);
-
+        int savedPos = pos;
+        int savedIndex = index;
         int chunk_size_tag = read_long();
 
         if (!sunInteropFix || chunk_size_tag > 0 && chunk_size_tag < MAX_BLOCK_SIZE)
         {
-
-            if(fragmentsReceived)
-            {
-                //TODO fragmentation
-            }
-            else
-            {
-                // valid chunk size: set the ending position of the chunk
-                chunk_end_pos = pos + chunk_size_tag;
-            }
+            // valid chunk size: set the ending position of the chunk
+            chunk_end_pos = pos + chunk_size_tag;
         }
         else
         {
             // reset buffer and remember that we're not within a chunk
-            try
-            {
-                reset();
-            }
-            catch ( java.io.IOException ioe )
-            {
-                logger.error("unexpected Exception in reset()", ioe );
-            }
+            pos = savedPos;
+            index = savedIndex;
 
             adjust_positions();
         }
