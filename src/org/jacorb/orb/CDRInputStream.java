@@ -84,7 +84,6 @@ public class CDRInputStream
     private int marked_index;
     private int marked_chunk_end_pos;
     private int marked_valueNestingLevel;
-    private int marked_endOfFragmentBufferPosition;
 
     private boolean closed;
 
@@ -578,21 +577,15 @@ public class CDRInputStream
         }
         else if (tag > 0 && tag < 0x7fffff00)
         {
-            if(fragmentsReceived)
-            {
-                 //TODO fragmentation
-            }
-            else
-            {
-                // tag is the chunk size tag of another chunk
-                chunk_end_pos = pos + tag;
-            }
+            // tag is the chunk size tag of another chunk
+
+            chunk_end_pos = pos + tag;
         }
         else // (tag == 0 || tag >= 0x7fffff00)
         {
             // tag is the null value tag or the value tag of a nested value
 
-            pos = saved_pos;
+            pos = saved_pos;      // "unread" the tag
             index = saved_index;
         }
     }
@@ -671,34 +664,12 @@ public class CDRInputStream
         int size = ei.size;
         int start = ei.start;
 
-
-        //check if next fragment was affected
-        if(ei.nextFragmentAffected)
+        if( pos < start + size )
         {
-            if(getGIOPMinor() == 1)
-            {
-                if( pos < start + size + Messages.MSG_HEADER_SIZE )
-                {
-                    pos = start + size;
-                }
-            }
-            else
-            {
-                if( pos < start + size + Messages.MSG_HEADER_SIZE + 4 )
-                {
-                    pos = start + size;
-                }
-            }
+            pos = start + size;
         }
-        else
-        {
-            if( pos < start + size )
-            {
-                pos = start + size;
-            }
 
-            index = ei.index + size;
-        }
+        index = ei.index + size;
     }
 
     /**
@@ -733,7 +704,6 @@ public class CDRInputStream
 
             size = temp;
         }
-
         /* save current index plus size of the encapsulation on the stack.
            When the encapsulation is closed, this value will be restored as
            index */
@@ -742,23 +712,7 @@ public class CDRInputStream
         {
             encaps_stack = new Stack();
         }
-
-        //check if next fragment is affected
-        if(fragmentsReceived)
-        {
-            if( (pos + size) > currentEndOfFragmentBufferPosition)
-            {
-                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, true ));
-            }
-            else
-            {
-                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
-            }
-        }
-        else
-        {
-            encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
-        }
+        encaps_stack.push(new EncapsInfo(old_endian, index, pos, size ));
 
         openEncapsulatedArray();
 
@@ -1147,16 +1101,17 @@ public class CDRInputStream
 
         handle_chunking();
 
-        int remainder = 4 - (index % 4);
-        if (remainder != 4)
-        {
-            index += remainder;
-            pos += remainder;
-        }
-
         for (int j = offset; j < offset + length; j++)
         {
             handle_fragmentation(4);
+
+            int remainder = 4 - (index % 4);
+            if (remainder != 4)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
             value[j] = Float.intBitsToFloat (_read_long());
         }
     }
@@ -1206,7 +1161,7 @@ public class CDRInputStream
 
             value[j] = _read4int (littleEndian,buffer,pos);
             pos += 4;
-            index += 4;
+            index +=4;
         }
     }
 
@@ -1505,7 +1460,7 @@ public class CDRInputStream
             try
             {
                 //handle index because of fragmentation
-                for(int i = 0; i < (size+1); i++)
+                for(int i = 0; i < size; i++)
                 {
                     handle_fragmentation(1);
                     index++;
@@ -1526,15 +1481,11 @@ public class CDRInputStream
         {
             char[] buf = new char[size];
 
-            //handle index because of fragmentation
-            for(int i = 0; i < (size+1); i++)
+            for (int i=0; i<size; i++)
             {
                 handle_fragmentation(1);
                 index++;
-            }
 
-            for (int i=0; i<size; i++)
-            {
                 buf[i] = (char)(0xff & buffer[start + i]);
             }
             result = new String(buf);
@@ -1907,7 +1858,6 @@ public class CDRInputStream
         marked_index = index;
         marked_chunk_end_pos = chunk_end_pos;
         marked_valueNestingLevel = valueNestingLevel;
-        marked_endOfFragmentBufferPosition = currentEndOfFragmentBufferPosition;
     }
 
     public void reset()
@@ -1921,7 +1871,6 @@ public class CDRInputStream
         index = marked_index;
         chunk_end_pos = marked_chunk_end_pos;
         valueNestingLevel = marked_valueNestingLevel;
-        currentEndOfFragmentBufferPosition = marked_endOfFragmentBufferPosition;
     }
 
     // JacORB-specific

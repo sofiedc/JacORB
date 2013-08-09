@@ -33,7 +33,6 @@ import java.util.Map;
 public class EncapsInfo
 {
     public boolean littleEndian;
-    public boolean nextFragmentAffected;
     public final int index;
     public final int start;
     public int size;
@@ -43,13 +42,12 @@ public class EncapsInfo
 
     /** constructor used by CDRInputStream */
 
-    public EncapsInfo(boolean le, int index, int start, int size, boolean nextFragmentAffected)
+    public EncapsInfo(boolean le, int index, int start, int size)
     {
         littleEndian = le;
         this.index = index;
         this.start = start;
         this.size = size;
-        this.nextFragmentAffected = nextFragmentAffected;
     }
 
     /**
