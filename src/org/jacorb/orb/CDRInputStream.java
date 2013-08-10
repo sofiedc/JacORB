@@ -770,11 +770,12 @@ public class CDRInputStream
         }
 
         ++index;
-        pos++;
 
-        logger.debug("CDRInputStream read(): " + ObjectUtil.toHex(buffer[pos]));
+        int result = buffer[ pos++ ];
 
-        return buffer[pos]; // read_index++];
+        logger.debug("CDRInputStream read(): " + result);
+
+        return result; // read_index++];
     }
 
     /**
@@ -943,9 +944,8 @@ public class CDRInputStream
         handle_fragmentation(1);
 
         index++;
-        pos++;
 
-        char result = (char)(buffer[pos] & 0xFF);
+        char result = (char)(buffer[pos++] & 0xFF);
 
         logger.debug("CDRInputStream read_char " + result);
 
@@ -980,9 +980,8 @@ public class CDRInputStream
             handle_fragmentation(1);
 
             index++;
-            pos++;
 
-            value[j] = (char) (0xff & buffer[pos]);
+            value[j] = (char) (0xff & buffer[pos++]);
 
             logger.debug("CDRInputStream read_char_array on array index " + j + " value " + value[j]);
         }
@@ -991,8 +990,6 @@ public class CDRInputStream
     public final double read_double()
     {
         double result = Double.longBitsToDouble (read_longlong());
-
-        Double.longBitsToDouble (read_longlong());
 
         logger.debug("CDRInputStream read_double " + result);
 
@@ -1208,8 +1205,6 @@ public class CDRInputStream
             pos += 4;
             index +=4;
 
-            _read4int (littleEndian,buffer,pos);
-
             logger.debug("CDRInputStream read_float_array on array index " + j + " value " + result);
         }
     }
@@ -1364,11 +1359,12 @@ public class CDRInputStream
         handle_fragmentation(1);
 
         index++;
-        pos++;
 
-        logger.debug("CDRInputStream read_octet " + ObjectUtil.toHex(buffer[pos]));
+        byte result = buffer[ pos++ ];
 
-        return buffer[pos];
+        logger.debug("CDRInputStream read_octet " + ObjectUtil.toHex(result));
+
+        return result;
     }
 
     public final void read_octet_array
@@ -1381,9 +1377,9 @@ public class CDRInputStream
             handle_fragmentation(1);
             index++;
         }
-        pos += length;
-
         System.arraycopy (buffer,pos,value,offset,length);
+
+        pos += length;
 
         logger.debug("CDRInputStream read_octet_array " + ObjectUtil.bufToString(value, offset, length));
     }
@@ -1511,6 +1507,7 @@ public class CDRInputStream
         // Optimize for empty strings.
         if (size == 0)
         {
+            index++;
             return "";
         }
 
@@ -1530,7 +1527,7 @@ public class CDRInputStream
             try
             {
                 //handle index because of fragmentation
-                for(int i = 0; i < size; i++)
+                for(int i = 0; i < (size+1); i++)
                 {
                     handle_fragmentation(1);
                     index++;
@@ -1838,11 +1835,12 @@ public class CDRInputStream
     {
         handle_fragmentation(1);
         index++;
-        pos++;
 
-        logger.debug("CDRInputStream read_byte " + buffer[ pos ]);
+        byte result = buffer [ pos++ ];
 
-        return buffer[ pos ];
+        logger.debug("CDRInputStream read_byte " + ObjectUtil.toHex(result));
+
+        return result;
     }
 
 
@@ -1856,11 +1854,12 @@ public class CDRInputStream
         handle_fragmentation(1);
 
         index++;
-        pos++;
 
-        logger.debug("CDRInputStream read_wchar_size " + buffer[ pos ]);
+        int result = buffer[ pos++ ];
 
-        return buffer[ pos ];
+        logger.debug("CDRInputStream read_wchar_size " + result);
+
+        return result;
     }
 
     private final char read_wchar(final boolean wchar_little_endian)
