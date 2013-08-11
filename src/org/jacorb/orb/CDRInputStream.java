@@ -630,7 +630,7 @@ public class CDRInputStream
                 logger.debug("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + currentEndOfFragmentBufferPosition);
             }
 
-            //get current end of fragment position
+            //update current end of fragment position
             for(int i = 0; i < endOfFragmentBufferPositions.size(); i++)
             {
                 if(pos >= endOfFragmentBufferPositions.get(i))
@@ -1481,7 +1481,7 @@ public class CDRInputStream
         int start = pos + 4;
 
         index += 4;
-        pos += (size + 4);
+        pos += 4;
 
         final int stringTerminatorPosition = start + size -1;
 
@@ -1508,6 +1508,8 @@ public class CDRInputStream
         if (size == 0)
         {
             index++;
+            pos++;
+
             return "";
         }
 
@@ -1531,6 +1533,7 @@ public class CDRInputStream
                 {
                     handle_fragmentation(1);
                     index++;
+                    pos++;
                 }
 
                 result = new String (buffer, start, size, codeSet.getName() );
@@ -1552,6 +1555,7 @@ public class CDRInputStream
             {
                 handle_fragmentation(1);
                 index++;
+                pos++;
 
                 buf[i] = (char)(0xff & buffer[start + i]);
             }
@@ -1559,6 +1563,7 @@ public class CDRInputStream
 
             handle_fragmentation(1);
             index++;
+            pos++;
         }
 
         logger.debug("CDRInputStream read_string " + result);
