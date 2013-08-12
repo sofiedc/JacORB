@@ -627,7 +627,7 @@ public class CDRInputStream
                 }
 
                 //debug logging
-                logger.debug("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + currentEndOfFragmentBufferPosition);
+                logger.info("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + currentEndOfFragmentBufferPosition);
             }
 
             //update current end of fragment position
@@ -942,7 +942,6 @@ public class CDRInputStream
         }
 
         handle_fragmentation(1);
-
         index++;
 
         char result = (char)(buffer[pos++] & 0xFF);
@@ -978,7 +977,6 @@ public class CDRInputStream
         for (int j = offset; j < offset + length; j++)
         {
             handle_fragmentation(1);
-
             index++;
 
             value[j] = (char) (0xff & buffer[pos++]);
@@ -1008,13 +1006,22 @@ public class CDRInputStream
 
         for (int j = offset; j < offset + length; j++)
         {
-            handle_fragmentation(8);
-
             int remainder = 8 - (index % 8);
             if (remainder != 8)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation( 8 ) )
+            {
+                remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+
             }
 
             value[j] =  Double.longBitsToDouble (read_longlong());
@@ -1138,13 +1145,21 @@ public class CDRInputStream
 
         for (int j = offset; j < offset + length; j++)
         {
-            handle_fragmentation(4);
-
             int remainder = 4 - (index % 4);
             if (remainder != 4)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation( 4 ) )
+            {
+                remainder = 4 - (index % 4);
+                if (remainder != 4)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
             }
 
             value[j] = Float.intBitsToFloat (read_long());
@@ -1157,8 +1172,6 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(4);
-
         int result;
 
         int remainder = 4 - (index % 4);
@@ -1166,6 +1179,16 @@ public class CDRInputStream
         {
             index += remainder;
             pos += remainder;
+        }
+
+        if( handle_fragmentation( 4 ) )
+        {
+            remainder = 4 - (index % 4);
+            if (remainder != 4)
+            {
+                index += remainder;
+                pos += remainder;
+            }
         }
 
         result = _read4int (littleEndian, buffer, pos);
@@ -1190,13 +1213,21 @@ public class CDRInputStream
 
         for (int j = offset; j < offset+length; j++)
         {
-            handle_fragmentation(4);
-
             int remainder = 4 - (index % 4);
             if (remainder != 4)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation( 4 ) )
+            {
+                remainder = 4 - (index % 4);
+                if (remainder != 4)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
             }
 
             int result = _read4int (littleEndian,buffer,pos);
@@ -1214,13 +1245,21 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(8);
-
         int remainder = 8 - (index % 8);
         if (remainder != 8)
         {
             index += remainder;
             pos += remainder;
+        }
+
+        if( handle_fragmentation( 8 ) )
+        {
+            remainder = 8 - (index % 8);
+            if (remainder != 8)
+            {
+                index += remainder;
+                pos += remainder;
+            }
         }
 
         long result = _read_longlong();
@@ -1244,13 +1283,21 @@ public class CDRInputStream
         {
             for(int j=offset; j < offset+length; j++)
             {
-                handle_fragmentation(8);
-
                 int remainder = 8 - (index % 8);
                 if (remainder != 8)
                 {
                     index += remainder;
                     pos += remainder;
+                }
+
+                if( handle_fragmentation( 8 ) )
+                {
+                    remainder = 8 - (index % 8);
+                    if (remainder != 8)
+                    {
+                        index += remainder;
+                        pos += remainder;
+                    }
                 }
 
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
@@ -1263,14 +1310,23 @@ public class CDRInputStream
         {
             for(int j=offset; j < offset+length; j++)
             {
-                handle_fragmentation(8);
-
                 int remainder = 8 - (index % 8);
                 if (remainder != 8)
                 {
                     index += remainder;
                     pos += remainder;
                 }
+
+                if( handle_fragmentation( 8 ) )
+                {
+                    remainder = 8 - (index % 8);
+                    if (remainder != 8)
+                    {
+                        index += remainder;
+                        pos += remainder;
+                    }
+                }
+
 
                 value[j] = ((long) _read_long() << 32) +
                     (_read_long() & 0xFFFFFFFFL);
@@ -1402,13 +1458,21 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(2);
-
         int remainder = 2 - (index % 2);
         if (remainder != 2)
         {
             index += remainder;
             pos += remainder;
+        }
+
+        if( handle_fragmentation(2) )
+        {
+            remainder = 2 - (index % 2);
+            if (remainder != 2)
+            {
+                index += remainder;
+                pos += remainder;
+            }
         }
 
         short result = _read2int (littleEndian,buffer,pos);
@@ -1432,13 +1496,21 @@ public class CDRInputStream
 
         for (int j = offset; j < offset + length; j++)
         {
-            handle_fragmentation(2);
-
             int remainder = 2 - (index % 2);
             if (remainder != 2)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation( 2 ) )
+            {
+                remainder = 2 - (index % 2);
+                if (remainder != 2)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
             }
 
             value[j] = _read2int (littleEndian, buffer, pos);
@@ -1626,8 +1698,6 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(4);
-
         int result;
 
         int remainder = 4 - (index % 4);
@@ -1635,6 +1705,17 @@ public class CDRInputStream
         {
             index += remainder;
             pos += remainder;
+        }
+
+        if( handle_fragmentation(4) )
+        {
+            remainder = 4 - (index % 4);
+            if (remainder != 4)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
         }
 
         result = _read4int (littleEndian, buffer, pos);
@@ -1659,13 +1740,21 @@ public class CDRInputStream
 
         for (int j = offset; j < offset+length; j++)
         {
-            handle_fragmentation(4);
-
             int remainder = 4 - (index % 4);
             if (remainder != 4)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation( 4 ) )
+            {
+                remainder = 4 - (index % 4);
+                if (remainder != 4)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
             }
 
             value[j] = _read4int (littleEndian,buffer,pos);
@@ -1680,8 +1769,6 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(8);
-
         int remainder = 8 - (index % 8);
         if (remainder != 8)
         {
@@ -1691,7 +1778,15 @@ public class CDRInputStream
 
         if (littleEndian)
         {
-            handle_fragmentation(8);
+            if( handle_fragmentation( 8 ) )
+            {
+                remainder = 8 - (index % 8);
+                if (remainder != 8)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
+            }
 
             long result = (_read_long() & 0xFFFFFFFFL) + ((long) _read_long() << 32);
 
@@ -1700,7 +1795,15 @@ public class CDRInputStream
             return result;
         }
 
-        handle_fragmentation(8);
+        if( handle_fragmentation( 8 ) )
+        {
+            remainder = 8 - (index % 8);
+            if (remainder != 8)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+        }
 
         long result = ((long) _read_long() << 32) + (_read_long() & 0xFFFFFFFFL);
 
@@ -1723,13 +1826,21 @@ public class CDRInputStream
         {
             for (int j = offset; j < offset+length; j++)
             {
-                handle_fragmentation(8);
-
                 int remainder = 8 - (index % 8);
                 if (remainder != 8)
                 {
                     index += remainder;
                     pos += remainder;
+                }
+
+                if( handle_fragmentation( 8 ) )
+                {
+                    remainder = 8 - (index % 8);
+                    if (remainder != 8)
+                    {
+                        index += remainder;
+                        pos += remainder;
+                    }
                 }
 
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
@@ -1742,13 +1853,21 @@ public class CDRInputStream
         {
             for (int j = offset; j < offset+length; j++)
             {
-                handle_fragmentation(8);
-
                 int remainder = 8 - (index % 8);
                 if (remainder != 8)
                 {
                     index += remainder;
                     pos += remainder;
+                }
+
+                if( handle_fragmentation( 8 ) )
+                {
+                    remainder = 8 - (index % 8);
+                    if (remainder != 8)
+                    {
+                        index += remainder;
+                        pos += remainder;
+                    }
                 }
 
                 logger.debug("CDRInputStream read_ulonglong_array on array index " + j + " value " + value[j]);
@@ -1765,13 +1884,22 @@ public class CDRInputStream
     {
         handle_chunking();
 
-        handle_fragmentation(2);
-
         int remainder = 2 - (index % 2);
         if (remainder != 2)
         {
             index += remainder;
             pos += remainder;
+        }
+
+        if( handle_fragmentation( 2 ) )
+        {
+            remainder = 2 - (index % 2);
+            if (remainder != 2)
+            {
+                index += remainder;
+                pos += remainder;
+            }
+
         }
 
         short result = _read2int (littleEndian,buffer,pos);
@@ -1795,13 +1923,21 @@ public class CDRInputStream
 
         for (int j = offset; j < offset + length; j++)
         {
-            handle_fragmentation(2);
-
             int remainder = 2 - (index % 2);
             if (remainder != 2)
             {
                 index += remainder;
                 pos += remainder;
+            }
+
+            if( handle_fragmentation(2) )
+            {
+                remainder = 2 - (index % 2);
+                if (remainder != 2)
+                {
+                    index += remainder;
+                    pos += remainder;
+                }
             }
 
             value[j] = _read2int (littleEndian, buffer, pos);
@@ -1939,14 +2075,14 @@ public class CDRInputStream
 
         handle_chunking();
 
-        handle_fragmentation(4);
-
         int remainder = 4 - (index % 4);
         if( remainder != 4 )
         {
             index += remainder;
             pos += remainder;
         }
+
+        handle_fragmentation(4);
 
         // read length indicator
         int size = _read4int( littleEndian, buffer, pos);
