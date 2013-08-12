@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Properties;
 import java.util.Vector;
 import junit.framework.Test;
 import junit.framework.TestSuite;
@@ -17,6 +16,7 @@ import org.jacorb.orb.giop.GIOPConnectionManager;
 import org.jacorb.orb.giop.LocateRequestOutputStream;
 import org.jacorb.orb.giop.MessageOutputStream;
 import org.jacorb.orb.giop.Messages;
+import org.jacorb.orb.giop.ReplyInputStream;
 import org.jacorb.orb.giop.ReplyListener;
 import org.jacorb.orb.giop.RequestInputStream;
 import org.jacorb.orb.giop.RequestListener;
@@ -49,10 +49,7 @@ public class GIOPConnectionTest
     public void setUp()
         throws Exception
     {
-        Properties props = new Properties();
-        props.setProperty("org.omg.CORBA.ORBSingletonClass", "org.jacorb.orb.ORBSingleton");
-        props.setProperty("org.omg.CORBA.ORBClass", "org.jacorb.orb.ORB");
-        orb = (ORB) ORB.init(new String[0], props);
+        orb = (ORB) ORB.init(new String[0], null);
         config = JacORBConfiguration.getConfiguration(null, orb, false);
     }
 
@@ -68,13 +65,12 @@ public class GIOPConnectionTest
         TestSuite suite = new JacORBTestSuite ("GIOPConnection Test",
                                                GIOPConnectionTest.class);
 
-        suite.addTest (new GIOPConnectionTest ("fragmentTest1_2"));
-        /*suite.addTest (new GIOPConnectionTest ("testGIOP_1_0_CorrectRefusing"));
+        suite.addTest (new GIOPConnectionTest ("testGIOP_1_0_CorrectRefusing"));
         suite.addTest (new GIOPConnectionTest ("testGIOP_1_1_IllegalMessageType"));
         suite.addTest (new GIOPConnectionTest ("testGIOP_1_2_CorrectFragmentedRequest"));
         suite.addTest (new GIOPConnectionTest ("testGIOP_1_2_CorrectCloseOnGarbage"));
         suite.addTest (new GIOPConnectionTest ("testGIOP_1_1_CorrectRequest"));
-        suite.addTest (new GIOPConnectionTest ("testGIOP_1_1_CorrectFragmentedRequest"));*/
+        suite.addTest (new GIOPConnectionTest ("testGIOP_1_1_CorrectFragmentedRequest"));
 
         return suite;
     }
@@ -267,120 +263,6 @@ public class GIOPConnectionTest
     public GIOPConnectionTest( String name )
     {
         super( name );
-    }
-
-    public void fragmentTest1_2()
-    {
-        List<byte[]> messages = new Vector<byte[]>();
-
-        RequestOutputStream r_out =
-            new RequestOutputStream( orb, //ClientConnection
-                                     (ClientConnection) null,           //request id
-                                     0,       //operation
-                                     "foo",        // response expected
-                                     true,   // SYNC_SCOPE (irrelevant)
-                                     (short)-1,        //request start time
-                                     null,        //request end time
-                                     null,        //reply start time
-                                     null, //object key
-                                     new byte[1], 2            // giop minor
-                                     );
-
-        /**
-         *
-         * Reply
-         * 00 00 00 00   00 00 00 00   00 00 00 00   00 01
-         * <----------------header---------------->  <-ushort>
-         *
-         *
-         * Fragment
-         * 00 00 00 00   00 00 00 00   00 00 00 00   00 00 00 00    00 00 00 02   00 00 00 03
-         * <--------------header----------------->   <requestid>    <---ulong->   < -ulong-->
-         *
-         *
-         * All Data in one Buffer:
-         * 00 00 00 00   00 00 00 00   00 00 00 00   00 01  00 00
-         *                                                  |> fragemnt data begin
-         * 00 02 00 00   00 03
-         * fragment data end>|
-         *
-         * The following data gets read:
-         * short: 1
-         * long: 131072
-         * long: read failed because buffer is too small
-         *
-         */
-
-        //manually write the first half of the string "barbaz"
-        r_out.write_short( (short) 1 );
-        r_out.insertMsgSize();
-
-        byte[] b = r_out.getBufferCopy();
-
-        b[6] |= 0x02; //set "more fragments follow"
-
-        messages.add( b );
-
-        MessageOutputStream m_out =
-            new MessageOutputStream(orb);
-        m_out.writeGIOPMsgHeader( MsgType_1_1._Fragment,
-                                     2 // giop minor
-                                     );
-        m_out.write_ulong( 0 ); // Fragment Header (request id)
-        m_out.write_long( 2 );
-        m_out.write_long( 3 );
-        m_out.insertMsgSize();
-
-        messages.add( m_out.getBufferCopy() );
-
-        DummyTransport transport =
-            new DummyTransport( messages );
-
-        DummyRequestListener request_listener =
-            new DummyRequestListener();
-
-        DummyReplyListener reply_listener =
-            new DummyReplyListener();
-
-        GIOPConnectionManager giopconn_mg =
-            new GIOPConnectionManager();
-        try
-        {
-            giopconn_mg.configure (config);
-        }
-        catch (Exception e)
-        {
-        }
-
-        ServerGIOPConnection conn =
-            giopconn_mg.createServerGIOPConnection( null,
-                                                    transport,
-                                                    request_listener,
-                                                    reply_listener );
-
-        try
-        {
-            //will not return until an IOException is thrown (by the
-            //DummyTransport)
-            conn.receiveMessages();
-        }
-        catch( IOException e )
-        {
-            //o.k., thrown by DummyTransport
-        }
-        catch( Exception e )
-        {
-            e.printStackTrace();
-            fail( "Caught exception: " + e );
-        }
-
-
-        RequestInputStream r_in = new RequestInputStream
-            ( orb, null, request_listener.getRequest() );
-
-        assertEquals(r_in.read_short(), (short) 1);
-        assertEquals(r_in.read_long(), (long) 131072);
-        assertEquals(r_in.read_long(), (long) 3);
     }
 
     public void testGIOP_1_1_CorrectFragmentedRequest()
