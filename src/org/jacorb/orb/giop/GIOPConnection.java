@@ -32,18 +32,14 @@ import org.jacorb.config.Configuration;
 import org.jacorb.config.ConfigurationException;
 import org.jacorb.orb.IBufferManager;
 import org.jacorb.orb.ORB;
-import org.jacorb.orb.SystemExceptionHelper;
 import org.jacorb.orb.etf.StreamConnectionBase;
 import org.jacorb.util.ObjectUtil;
 import org.jacorb.util.Time;
 import org.jacorb.util.TimerQueue;
 import org.jacorb.util.TimerQueueAction;
-import org.omg.CORBA.CompletionStatus;
-import org.omg.CORBA.NO_IMPLEMENT;
 import org.omg.CORBA.TIMEOUT;
 import org.omg.ETF.BufferHolder;
 import org.omg.GIOP.MsgType_1_1;
-import org.omg.GIOP.ReplyStatusType_1_2;
 import org.slf4j.Logger;
 
 /**
@@ -141,6 +137,8 @@ public abstract class GIOPConnection
     // deadline for current send operation
     private org.omg.TimeBase.UtcT sendDeadline = null;
 
+    private Integer lastRequestId = -1;
+
     public class ConnectionReset extends TimerQueueAction
     {
         long relative;
@@ -203,7 +201,7 @@ public abstract class GIOPConnection
 
         for (Iterator<String> iter = statsProviderClassNames.iterator (); iter.hasNext ();)
         {
-            String className = (String) iter.next ();
+            String className = iter.next ();
             try
             {
                 Class<?> iclass = ObjectUtil.classForName (className);
@@ -607,8 +605,6 @@ public abstract class GIOPConnection
                 }
 
                 //for now, only GIOP 1.2 from here on
-
-                int request_id = Messages.getRequestId( message );
 
                 //sanity check
                 if ( ! fragments.containsKey( request_id ) || lastRequestId.intValue() == -1)
