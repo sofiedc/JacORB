@@ -770,12 +770,7 @@ public class CDRInputStream
         }
 
         ++index;
-
-        int result = buffer[ pos++ ];
-
-        logger.debug("CDRInputStream read(): " + result);
-
-        return result; // read_index++];
+        return buffer[pos++]; // read_index++];
     }
 
     /**
@@ -841,9 +836,6 @@ public class CDRInputStream
             handle_fragmentation(1);
             index++;
         }
-
-        logger.debug("CDRInputStream read " + ObjectUtil.bufToString(b , off, min));
-
         return min;
     }
 
@@ -867,8 +859,6 @@ public class CDRInputStream
 
         index++;
         byte value = buffer[pos++];
-
-        logger.debug("CDRInputStream read_boolean " + parseBoolean(value));
 
         return parseBoolean(value);
     }
@@ -896,8 +886,6 @@ public class CDRInputStream
             final byte bb = buffer[pos++];
             value[j] = parseBoolean(bb);
             ++j;
-
-            logger.debug("CDRInputStream read_boolean_array on array index " + j + " value " + parseBoolean(bb));
         }
         while(j < until);
     }
@@ -943,12 +931,7 @@ public class CDRInputStream
 
         handle_fragmentation(1);
         index++;
-
-        char result = (char)(buffer[pos++] & 0xFF);
-
-        logger.debug("CDRInputStream read_char " + result);
-
-        return result;
+        return (char)(buffer[pos++] & 0xFF);
     }
 
 
@@ -978,20 +961,13 @@ public class CDRInputStream
         {
             handle_fragmentation(1);
             index++;
-
             value[j] = (char) (0xff & buffer[pos++]);
-
-            logger.debug("CDRInputStream read_char_array on array index " + j + " value " + value[j]);
         }
     }
 
     public final double read_double()
     {
-        double result = Double.longBitsToDouble (read_longlong());
-
-        logger.debug("CDRInputStream read_double " + result);
-
-        return result;
+        return Double.longBitsToDouble (read_longlong());
     }
 
     public final void read_double_array
@@ -1025,8 +1001,6 @@ public class CDRInputStream
             }
 
             value[j] =  Double.longBitsToDouble (read_longlong());
-
-            logger.debug("CDRInputStream read_double_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -1092,6 +1066,8 @@ public class CDRInputStream
      */
     private int read_fixed_internal(StringBuffer outBuffer, short digits)
     {
+        handle_fragmentation(1);
+
         int b = buffer[pos++];
         int c = b & 0x0F; // second half byte
         index++;
@@ -1112,6 +1088,7 @@ public class CDRInputStream
             }
             outBuffer.append(c);
 
+            handle_fragmentation(1);
             b = buffer[pos++];
             index++;
         }
@@ -1126,11 +1103,7 @@ public class CDRInputStream
 
     public final float read_float()
     {
-        float result = Float.intBitsToFloat (read_long());
-
-        logger.debug("CDRInputStream read_float " + result);
-
-        return result;
+        return Float.intBitsToFloat (read_long());
     }
 
     public final void read_float_array
@@ -1163,8 +1136,6 @@ public class CDRInputStream
             }
 
             value[j] = Float.intBitsToFloat (read_long());
-
-            logger.debug("CDRInputStream read_float_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -1195,9 +1166,6 @@ public class CDRInputStream
 
         index += 4;
         pos += 4;
-
-        logger.debug("CDRInputStream read_long " + result);
-
         return result;
     }
 
@@ -1235,8 +1203,6 @@ public class CDRInputStream
             value[j] = result;
             pos += 4;
             index +=4;
-
-            logger.debug("CDRInputStream read_float_array on array index " + j + " value " + result);
         }
     }
 
@@ -1261,12 +1227,7 @@ public class CDRInputStream
                 pos += remainder;
             }
         }
-
-        long result = _read_longlong();
-
-        logger.debug("CDRInputStream read_longlong " + result);
-
-        return result;
+		return _read_longlong();
     }
 
     public final void read_longlong_array
@@ -1302,8 +1263,6 @@ public class CDRInputStream
 
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
                     ((long) _read_long() << 32);
-
-                logger.debug("CDRInputStream read_longlong_array on array index " + j + " value " + value[j]);
             }
         }
         else
@@ -1330,8 +1289,6 @@ public class CDRInputStream
 
                 value[j] = ((long) _read_long() << 32) +
                     (_read_long() & 0xFFFFFFFFL);
-
-                logger.debug("CDRInputStream read_longlong_array on array index " + j + " value " + value[j]);
             }
         }
 
@@ -1415,12 +1372,7 @@ public class CDRInputStream
         handle_fragmentation(1);
 
         index++;
-
-        byte result = buffer[ pos++ ];
-
-        logger.debug("CDRInputStream read_octet " + ObjectUtil.toHex(result));
-
-        return result;
+        return buffer[pos++];
     }
 
     public final void read_octet_array
@@ -1436,8 +1388,6 @@ public class CDRInputStream
         System.arraycopy (buffer,pos,value,offset,length);
 
         pos += length;
-
-        logger.debug("CDRInputStream read_octet_array " + ObjectUtil.bufToString(value, offset, length));
     }
 
     /*
@@ -1478,9 +1428,6 @@ public class CDRInputStream
         short result = _read2int (littleEndian,buffer,pos);
         pos += 2;
         index += 2;
-
-        logger.debug("CDRInputStream read_short " + result);
-
         return result;
     }
 
@@ -1516,8 +1463,6 @@ public class CDRInputStream
             value[j] = _read2int (littleEndian, buffer, pos);
             pos += 2;
             index += 2;
-
-            logger.debug("CDRInputStream read_short_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -1638,8 +1583,6 @@ public class CDRInputStream
             pos++;
         }
 
-        logger.debug("CDRInputStream read_string " + result);
-
         return result;
     }
 
@@ -1722,9 +1665,6 @@ public class CDRInputStream
 
         index += 4;
         pos += 4;
-
-        logger.debug("CDRInputStream read_ulong " + result);
-
         return result;
     }
 
@@ -1760,8 +1700,6 @@ public class CDRInputStream
             value[j] = _read4int (littleEndian,buffer,pos);
             pos += 4;
             index += 4;
-
-            logger.debug("CDRInputStream read_ulong_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -1788,11 +1726,7 @@ public class CDRInputStream
                 }
             }
 
-            long result = (_read_long() & 0xFFFFFFFFL) + ((long) _read_long() << 32);
-
-            logger.debug("CDRInputStream read_ulonglong " + result);
-
-            return result;
+            return (_read_long() & 0xFFFFFFFFL) + ((long) _read_long() << 32);
         }
 
         if( handle_fragmentation( 8 ) )
@@ -1805,11 +1739,7 @@ public class CDRInputStream
             }
         }
 
-        long result = ((long) _read_long() << 32) + (_read_long() & 0xFFFFFFFFL);
-
-        logger.debug("CDRInputStream read_ulonglong " + result);
-
-        return result;
+        return ((long) _read_long() << 32) + (_read_long() & 0xFFFFFFFFL);
     }
 
     public final void read_ulonglong_array
@@ -1845,8 +1775,6 @@ public class CDRInputStream
 
                 value[j] = ( _read_long() & 0xFFFFFFFFL) +
                     ((long) _read_long() << 32);
-
-                logger.debug("CDRInputStream read_ulongong_array on array index " + j + " value " + value[j]);
             }
         }
         else
@@ -1869,9 +1797,6 @@ public class CDRInputStream
                         pos += remainder;
                     }
                 }
-
-                logger.debug("CDRInputStream read_ulonglong_array on array index " + j + " value " + value[j]);
-
                 value[j] = ((long) _read_long() << 32) +
                     (_read_long() & 0xFFFFFFFFL);
             }
@@ -1905,9 +1830,6 @@ public class CDRInputStream
         short result = _read2int (littleEndian,buffer,pos);
         pos += 2;
         index += 2;
-
-        logger.debug("CDRInputStream read_ushort " + result);
-
         return result;
     }
 
@@ -1943,8 +1865,6 @@ public class CDRInputStream
             value[j] = _read2int (littleEndian, buffer, pos);
             pos += 2;
             index += 2;
-
-            logger.debug("CDRInputStream read_ushort_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -1976,12 +1896,7 @@ public class CDRInputStream
     {
         handle_fragmentation(1);
         index++;
-
-        byte result = buffer [ pos++ ];
-
-        logger.debug("CDRInputStream read_byte " + ObjectUtil.toHex(result));
-
-        return result;
+        return buffer[ pos++ ];
     }
 
 
@@ -1996,20 +1911,12 @@ public class CDRInputStream
 
         index++;
 
-        int result = buffer[ pos++ ];
-
-        logger.debug("CDRInputStream read_wchar_size " + result);
-
-        return result;
+        return buffer[ pos++ ];
     }
 
     private final char read_wchar(final boolean wchar_little_endian)
     {
-        char result = codeSetW.read_wchar( this, giop_minor, wchar_little_endian );
-
-        logger.debug("CDRInputStream read_wchar " + result);
-
-        return result;
+        return codeSetW.read_wchar( this, giop_minor, wchar_little_endian );
     }
 
     /**
@@ -2061,7 +1968,6 @@ public class CDRInputStream
         for(int j=offset; j < offset+length; j++)
         {
             value[j] = read_wchar(); // inlining later...
-            logger.debug("CDRInputStream read_wchar_array on array index " + j + " value " + value[j]);
         }
     }
 
@@ -2090,11 +1996,7 @@ public class CDRInputStream
         pos += 4;
         if (size == 0) return "";
 
-        String result = codeSetW.read_wstring( this, size, this.giop_minor, this.littleEndian );
-
-        logger.debug("CDRInputStream read_wstring " + result);
-
-        return result;
+        return codeSetW.read_wstring( this, size, this.giop_minor, this.littleEndian );
     }
 
 
@@ -2566,7 +2468,6 @@ public class CDRInputStream
                 }
                 default:
                 {
-                    logger.info("buffer pos: " + pos + " index: " + index);
                     throw new MARSHAL("Cannot handle TypeCode with kind " + kind);
                 }
             }
