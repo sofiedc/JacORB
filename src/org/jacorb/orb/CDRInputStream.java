@@ -627,7 +627,7 @@ public class CDRInputStream
                 }
 
                 //debug logging
-                logger.info("Swapping to next fragment in CDRInputStream buffer, end of fragment at buffer posittion : " + currentEndOfFragmentBufferPosition);
+                logger.info("Swapping to next fragment in CDRInputStream buffer, acutal end of fragment at buffer position : " + currentEndOfFragmentBufferPosition);
             }
 
             //update current end of fragment position
@@ -669,7 +669,18 @@ public class CDRInputStream
             pos = start + size;
         }
 
-        index = ei.index + size;
+
+        if( fragmentsReceived )
+        {
+            if( ei.nextFragmentAffected == false)
+            {
+                index = ei.index + size;
+            }
+        }
+        else
+        {
+            index = ei.index + size;
+        }
     }
 
     /**
@@ -712,7 +723,24 @@ public class CDRInputStream
         {
             encaps_stack = new Stack();
         }
-        encaps_stack.push(new EncapsInfo(old_endian, index, pos, size ));
+
+        if( fragmentsReceived )
+        {
+            if( (pos + size) > currentEndOfFragmentBufferPosition )
+            {
+                logger.debug("Next Fragment affected while open encapsulation");
+                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, true ));
+            }
+            else
+            {
+                encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
+            }
+        }
+        else
+        {
+            encaps_stack.push(new EncapsInfo(old_endian, index, pos, size, false ));
+        }
+
 
         openEncapsulatedArray();
 
