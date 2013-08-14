@@ -242,7 +242,7 @@ public class CDRInputStream
 
         this.buffer = buffer;
 
-        if(Messages.matchGIOPMagic(buffer))
+        if(buffer.length > Messages.MSG_HEADER_SIZE && Messages.matchGIOPMagic(buffer))
         {
             //Check for Fragmentation
             fragmentsReceived = Messages.moreFragmentsFollow(buffer);
