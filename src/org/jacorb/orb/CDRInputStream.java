@@ -244,12 +244,12 @@ public class CDRInputStream
 
         if(buffer.length > Messages.MSG_HEADER_SIZE && Messages.matchGIOPMagic(buffer))
         {
-            //Check for Fragmentation
+            //Check for fragmentation
             fragmentsReceived = Messages.moreFragmentsFollow(buffer);
 
             if(fragmentsReceived)
             {
-                //get end position in buffer of first
+                //determine end of fragment positions from buffer
                 endOfFragmentBufferPositions = processFragments();
 
                 if(endOfFragmentBufferPositions.size() == 0)
@@ -257,9 +257,9 @@ public class CDRInputStream
                     throw new IllegalArgumentException();
                 }
 
+                //set end of fragment position to the end of the first message (fragment)
                 currentEndOfFragmentBufferPosition = endOfFragmentBufferPositions.get(0);
             }
-
         }
     }
 
