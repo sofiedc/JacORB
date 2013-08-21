@@ -20,7 +20,11 @@ package org.jacorb.orb.cdr;
  *   Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-
+/**
+ *
+ * @author Christian H‰ﬂelbarth
+ *
+ */
 public class BufferPositionsValuePair
 {
     public int startValuePosition;
