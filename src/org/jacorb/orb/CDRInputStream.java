@@ -146,17 +146,13 @@ public class CDRInputStream
     /** Ending position of the current chunk */
     private int chunk_end_pos = -1;   // -1 means we're not within a chunk
 
-    /** Flag for fragmentation */
+    /** Flag for indicating fragmentation */
     private boolean fragmentsReceived = false;
 
-    /**
-     *  Set to the position of the last byte in the current
-     *  fragment (Reply with "more fragments follow" bit set
-     *  or GIOP 1.1 / GIOP 1.2 fragment)
-     */
+    /** Set to the position of the last byte in the current fragment */
     private int currentEndOfFragmentBufferPosition = -1;
 
-    /**  */
+    /** List with position in buffer for indication the end of a fragment */
     private ArrayList<Integer> endOfFragmentBufferPositions = new ArrayList<Integer>();
 
     /**
@@ -603,8 +599,10 @@ public class CDRInputStream
     }
 
     /**
+     * Function for handling packet fragmentation
      *
-     * @param bytesToRead
+     * @param bytesToRead Number of bytes to read
+     * @return true, when swapped to next fragment
      */
     private boolean handle_fragmentation(final int bytesToRead)
     {
@@ -669,9 +667,9 @@ public class CDRInputStream
             pos = start + size;
         }
 
-
         if( fragmentsReceived )
         {
+            //restore index only when encapsulation was not spreaded over fragments
             if( ei.nextFragmentAffected == false)
             {
                 index = ei.index + size;
@@ -724,8 +722,10 @@ public class CDRInputStream
             encaps_stack = new Stack();
         }
 
+
         if( fragmentsReceived )
         {
+            //next fragment affected by encapulation?
             if( (pos + size) > currentEndOfFragmentBufferPosition )
             {
                 logger.debug("Next Fragment affected while open encapsulation");
@@ -1574,7 +1574,7 @@ public class CDRInputStream
             try
             {
                 //handle index because of fragmentation
-                for(int i = 0; i < (size+1); i++)
+                for(int i = 0; i < (size+1); i++) //size + 1 because of string terminator
                 {
                     handle_fragmentation(1);
                     index++;
@@ -1606,6 +1606,7 @@ public class CDRInputStream
             }
             result = new String(buf);
 
+            //handle string terminator
             handle_fragmentation(1);
             index++;
             pos++;
@@ -1936,7 +1937,6 @@ public class CDRInputStream
     private final int read_wchar_size()
     {
         handle_fragmentation(1);
-
         index++;
 
         return buffer[ pos++ ];
